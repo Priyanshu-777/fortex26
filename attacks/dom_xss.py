@@ -1,8 +1,9 @@
 import requests
 
 class DOMXSSTester:
-    def __init__(self, headers=None):
+    def __init__(self, headers=None, proxies=None):
         self.headers = headers or {}
+        self.proxies = proxies or {}
         self.sinks = [
             "document.write",
             "innerHTML",
@@ -23,7 +24,7 @@ class DOMXSSTester:
         print(f"[DOM-XSS] Analyzing {url}")
         
         try:
-            resp = requests.get(url, headers=self.headers, timeout=5)
+            resp = requests.get(url, headers=self.headers, timeout=5, proxies=self.proxies)
             content = resp.text
             
             found_sinks = []

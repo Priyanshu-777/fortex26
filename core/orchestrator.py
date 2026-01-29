@@ -43,6 +43,9 @@ class Orchestrator:
         print("[+] Running spider")
         self.zap.spider(self.target_url)
 
+        print("[+] Running AJAX spider")
+        self.zap.ajax_spider(self.target_url)
+
         print("[+] Waiting for passive scan")
         self.zap.wait_for_passive_scan()
 
@@ -88,6 +91,11 @@ class Orchestrator:
             print("[-] No ID-based endpoints discovered")
             return findings
 
+        proxies = {
+            "http": self.zap_proxy,
+            "https": self.zap_proxy,
+        }
+
         # -----------------------------
         # Run IDOR Attacks
         # -----------------------------
@@ -98,7 +106,8 @@ class Orchestrator:
                 headers={
                     # Add auth if needed
                     # "Authorization": "Bearer YOUR_TOKEN"
-                }
+                },
+                proxies=proxies,
             )
 
             findings.extend(idor.run(idor_targets))
@@ -112,7 +121,8 @@ class Orchestrator:
             auth = AuthTester(
                 headers={
                     # Example
-                }
+                },
+                proxies=proxies,
             )
 
             findings.extend(auth.run(idor_targets))
@@ -126,7 +136,8 @@ class Orchestrator:
             xss = XSSTester(
                 headers={
                     # Add auth header if required
-                }
+                },
+                proxies=proxies,
             )
 
             findings.extend(xss.run(idor_targets))
@@ -140,7 +151,8 @@ class Orchestrator:
             dom_xss = DOMXSSTester(
                 headers={
                     # Optional auth
-                }
+                },
+                proxies=proxies,
             )
 
             findings.extend(dom_xss.run(idor_targets))
@@ -170,11 +182,24 @@ class Orchestrator:
             report = ReportGenerator(
                 target=self.target_url,
                 findings=findings,
+                attack_surface=attack_surface,
+                attack_plan=attack_plan
             )
             path = report.save()
             print(f"[+] Report saved at: {path}")
         else:
             print("[+] No IDOR vulnerabilities found")
+            
+            # Always generate report
+            print("\n[+] Generating report")
+            report = ReportGenerator(
+                target=self.target_url,
+                findings=[],
+                attack_surface=attack_surface,
+                attack_plan=attack_plan
+            )
+            path = report.save()
+            print(f"[+] Report saved at: {path}")
 
         print("\n[+] Orchestrator finished\n")
         return findings

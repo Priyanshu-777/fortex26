@@ -17,6 +17,22 @@ class ZAPClient:
             time.sleep(2)
         print("[+] Spider completed")
 
+    def ajax_spider(self, target_url):
+        print(f"[+] Starting AJAX spider on {target_url}")
+        self.zap.ajaxSpider.scan(target_url)
+        
+        timeout_loops = 0
+        while self.zap.ajaxSpider.status == 'running':
+            if timeout_loops > 60: # ~2 minutes max for demo
+                self.zap.ajaxSpider.stop()
+                print("    AJAX Spider timed out")
+                break
+            print("    AJAX Spider running...")
+            time.sleep(2)
+            timeout_loops += 1
+            
+        print("[+] AJAX Spider completed")
+
     def wait_for_passive_scan(self):
         print("[+] Waiting for passive scan to finish")
         while int(self.zap.pscan.records_to_scan) > 0:

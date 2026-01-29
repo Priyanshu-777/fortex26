@@ -5,9 +5,10 @@ from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 COMMON_ID_PARAMS = ["id", "user_id", "account_id", "order_id", "profile_id"]
 
 class IDORTester:
-    def __init__(self, base_url, headers=None):
+    def __init__(self, base_url, headers=None, proxies=None):
         self.base_url = base_url.rstrip("/")
         self.headers = headers or {}
+        self.proxies = proxies or {}
 
     def _find_id_param(self, params):
         for p in params:
@@ -44,8 +45,8 @@ class IDORTester:
         print(f"[IDOR] Testing {tampered_url}")
 
         try:
-            original_resp = requests.get(url, headers=self.headers, timeout=10)
-            tampered_resp = requests.get(tampered_url, headers=self.headers, timeout=10)
+            original_resp = requests.get(url, headers=self.headers, timeout=10, proxies=self.proxies)
+            tampered_resp = requests.get(tampered_url, headers=self.headers, timeout=10, proxies=self.proxies)
         except requests.RequestException:
             return None
 
