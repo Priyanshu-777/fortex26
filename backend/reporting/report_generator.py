@@ -3,9 +3,11 @@ import json
 import os
 
 class ReportGenerator:
-    def __init__(self, target, findings):
+    def __init__(self, target, findings, attack_surface=None, attack_plan=None):
         self.target = target
         self.findings = findings
+        self.attack_surface = attack_surface or []
+        self.attack_plan = attack_plan or {}
         self.timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
 
     def executive_summary(self):
@@ -24,12 +26,55 @@ class ReportGenerator:
             content += "---\n\n"
         return content
 
+    def scan_scope(self):
+        content = f"## 🔍 Scan Scope\n\n**Total Unique Endpoints Discovered:** {len(self.attack_surface)}\n\n"
+        if self.attack_surface:
+            content += "| Method | URL |\n|---|---|\n"
+            # Limit to top 20 to avoid huge reports
+            for item in self.attack_surface[:20]:
+                content += f"| {item.get('method')} | `{item.get('url')}` |\n"
+            
+            if len(self.attack_surface) > 20:
+                content += f"\n*(...and {len(self.attack_surface) - 20} more)*\n"
+        else:
+            content += "_No endpoints were discovered during the crawl phase._\n"
+        return content + "\n"
+
+    def methodology(self):
+        content = "## 🧪 Methodology\n\n"
+        
+        # Tools Used
+        content += "### Tools & Techniques\n"
+        content += "- **ZAP Spider**: Standard crawling for static links.\n"
+        content += "- **ZAP AJAX Spider**: Dynamic crawling for SPA/JS-heavy content.\n"
+        content += "- **AI Planner**: Context-aware attack strategy.\n\n"
+
+        # AI Plan
+        if self.attack_plan:
+            content += "### Planned Attacks (AI Driven)\n"
+            content += "Based on the attack surface, the AI agent planned the following tests:\n\n"
+            if "reasoning" in self.attack_plan:
+                for reason in self.attack_plan["reasoning"]:
+                    content += f"- {reason}\n"
+        
+        return content + "\n---\n\n"
+
     def generate_markdown(self):
         report = "# 🛡️ Security Assessment Report\n\n"
         report += self.executive_summary()
         report += "\n---\n\n"
+        
+        # New Sections
+        report += self.methodology()
+        report += self.scan_scope()
+        report += "\n---\n\n"
+        
         report += "## Vulnerability Details\n\n"
-        report += self.vulnerability_details()
+        if self.findings:
+            report += self.vulnerability_details()
+        else:
+            report += "_No vulnerabilities were identified during this scan._\n"
+            
         return report
 
     def save(self, output_dir="reports"):

@@ -148,7 +148,9 @@ export default function ReportViewer({ report }) {
 
       <Card title="Executive Summary" icon={Info} iconColor="text-cyan-400">
         <p className="text-green-300 leading-relaxed">
-          {report.summary || "No summary available."}
+          {typeof report.summary === "object"
+            ? JSON.stringify(report.summary, null, 2)
+            : report.summary || "No summary available."}
         </p>
       </Card>
 

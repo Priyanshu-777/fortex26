@@ -3,8 +3,9 @@ import urllib.parse
 import copy
 
 class XSSTester:
-    def __init__(self, headers=None):
+    def __init__(self, headers=None, proxies=None):
         self.headers = headers or {}
+        self.proxies = proxies or {}
         self.payloads = [
             "<script>alert(1)</script>",
             "\" onmouseover=\"alert(1)",
@@ -38,7 +39,7 @@ class XSSTester:
                 new_url = urllib.parse.urlunparse(parsed._replace(query=new_query_string))
 
                 try:
-                    resp = requests.get(new_url, headers=self.headers, timeout=5)
+                    resp = requests.get(new_url, headers=self.headers, timeout=5, proxies=self.proxies)
                     if payload in resp.text:
                         findings.append({
                             "vulnerability": "Reflected XSS",

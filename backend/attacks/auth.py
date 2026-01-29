@@ -1,8 +1,9 @@
 import requests
 
 class AuthTester:
-    def __init__(self, headers=None):
+    def __init__(self, headers=None, proxies=None):
         self.auth_headers = headers or {}
+        self.proxies = proxies or {}
 
     def test_endpoint(self, endpoint):
         url = endpoint.get("url")
@@ -12,8 +13,8 @@ class AuthTester:
         print(f"[AUTH] Testing authentication on {url}")
 
         try:
-            auth_resp = requests.get(url, headers=self.auth_headers, timeout=10)
-            noauth_resp = requests.get(url, headers={}, timeout=10)
+            auth_resp = requests.get(url, headers=self.auth_headers, timeout=10, proxies=self.proxies)
+            noauth_resp = requests.get(url, headers={}, timeout=10, proxies=self.proxies)
 
         except requests.RequestException:
             return None

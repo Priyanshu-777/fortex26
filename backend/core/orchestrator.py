@@ -52,6 +52,9 @@ class Orchestrator:
         self.log("[Step 4] Running spider to discover pages", "step")
         self.zap.spider(self.target_url)
 
+        self.log("[Step 4b] Running AJAX spider", "step")
+        self.zap.ajax_spider(self.target_url)
+
         self.log("[Step 5] Waiting for passive scan", "step")
         self.zap.wait_for_passive_scan()
 
@@ -64,7 +67,12 @@ class Orchestrator:
 
         if not attack_surface:
             self.log("[-] No attack surface found", "error")
-            return findings
+            return {
+                "findings": [],
+                "attack_surface": [],
+                "attack_plan": {},
+                "risk_level": "LOW"
+            }
 
         # -----------------------------
         # AI Attack Planning
@@ -93,9 +101,10 @@ class Orchestrator:
 
         self.log(f"[+] {len(idor_targets)} endpoints ready for testing")
 
-        if not idor_targets:
-            self.log("[-] No ID-based endpoints discovered")
-            return findings
+        proxies = {
+            "http": self.zap_proxy,
+            "https": self.zap_proxy,
+        }
 
         # -----------------------------
         # Run IDOR Attacks
@@ -107,7 +116,8 @@ class Orchestrator:
                 headers={
                     # Add auth if needed
                     # "Authorization": "Bearer YOUR_TOKEN"
-                }
+                },
+                proxies=proxies,
             )
 
             findings.extend(idor.run(idor_targets))
@@ -121,7 +131,8 @@ class Orchestrator:
             auth = AuthTester(
                 headers={
                     # Example
-                }
+                },
+                proxies=proxies,
             )
 
             findings.extend(auth.run(idor_targets))
@@ -135,7 +146,8 @@ class Orchestrator:
             xss = XSSTester(
                 headers={
                     # Add auth header if required
-                }
+                },
+                proxies=proxies,
             )
 
             findings.extend(xss.run(idor_targets))
@@ -149,7 +161,8 @@ class Orchestrator:
             dom_xss = DOMXSSTester(
                 headers={
                     # Optional auth
-                }
+                },
+                proxies=proxies,
             )
 
             findings.extend(dom_xss.run(idor_targets))
@@ -179,11 +192,30 @@ class Orchestrator:
             report = ReportGenerator(
                 target=self.target_url,
                 findings=findings,
+                attack_surface=attack_surface,
+                attack_plan=attack_plan
             )
             path = report.save()
             self.log(f"[+] Report saved at: {path}", "success")
         else:
             self.log("[+] No vulnerabilities found", "success")
+            
+            # Always generate report
+            self.log("[Step 14] Generating report", "step")
+            report = ReportGenerator(
+                target=self.target_url,
+                findings=[],
+                attack_surface=attack_surface,
+                attack_plan=attack_plan
+            )
+            path = report.save()
+            self.log(f"[+] Report saved at: {path}", "success")
 
         self.log("[+] Orchestrator finished", "success")
-        return findings
+        
+        return {
+            "findings": findings,
+            "attack_surface": attack_surface,
+            "attack_plan": attack_plan,
+            "risk_level": "HIGH" if findings else "LOW" # Simple logic for now
+        }

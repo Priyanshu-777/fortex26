@@ -70,41 +70,46 @@ def run_scan(run_id: str, target_url: str):
         )
         
         add_log(run_id, "[Step 2] Running security orchestrator", "step")
-        findings = orchestrator.run()
+        result = orchestrator.run()
         
-        # Update scan with results
-        scans[run_id]["status"] = "COMPLETE"
-        scans[run_id]["findings"] = findings
+        findings = result.get("findings", [])
+        attack_surface = result.get("attack_surface", [])
         
-        # Generate report structure
-        if findings:
-            add_log(run_id, f"Scan complete. Found {len(findings)} vulnerabilities", "success")
-            scans[run_id]["report"] = {
-                "target": target_url,
-                "timestamp": datetime.now().isoformat(),
-                "findings": findings,
-                "summary": {
-                    "total": len(findings),
-                    "critical": sum(1 for f in findings if f.get("severity") == "CRITICAL"),
-                    "high": sum(1 for f in findings if f.get("severity") == "HIGH"),
-                    "medium": sum(1 for f in findings if f.get("severity") == "MEDIUM"),
-                    "low": sum(1 for f in findings if f.get("severity") == "LOW"),
-                }
-            }
+        # Generate Frontend-compatible report
+        summary_text = f"Scan completed on {target_url}. Found {len(findings)} vulnerabilities."
+        if not findings:
+            summary_text += " No significant security issues were detected."
         else:
-            add_log(run_id, "Scan complete. No vulnerabilities found", "success")
-            scans[run_id]["report"] = {
-                "target": target_url,
-                "timestamp": datetime.now().isoformat(),
-                "findings": [],
-                "summary": {
-                    "total": 0,
-                    "critical": 0,
-                    "high": 0,
-                    "medium": 0,
-                    "low": 0,
+            summary_text += " Immediate remediation is recommended."
+
+        scans[run_id]["report"] = {
+            "target": target_url,
+            "timestamp": datetime.now().isoformat(),
+            "risk_level": result.get("risk_level", "LOW"),
+            "summary": summary_text, # MUST BE STRING
+            "vulnerabilities": [
+                {
+                    "type": f.get("vulnerability"),
+                    "severity": f.get("severity"),
+                    "location": f.get("endpoint"),
+                    "description": f"Impact: {f.get('impact')}. Parameter: {f.get('parameter')}"
                 }
-            }
+                for f in findings
+            ],
+            "pages_visited": [item.get("url") for item in attack_surface if item.get("url")],
+            "inputs_tested": [], # We can populate this if we track it
+            "recommendations": [
+                "Implement strict input validation",
+                "Enable Content Security Policy (CSP)",
+                "Review access controls on all endpoints"
+            ] if findings else ["Regularly update dependencies", "Enable CSP"]
+        }
+        
+        add_log(run_id, "Scan complete. Report ready.", "success")
+        
+        # Update scan with results - AFTER report is ready to avoid race condition with frontend polling
+        scans[run_id]["findings"] = findings
+        scans[run_id]["status"] = "COMPLETE"
             
     except Exception as e:
         scans[run_id]["status"] = "ERROR"
