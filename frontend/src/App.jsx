@@ -192,19 +192,19 @@ function App() {
 
   return (
     <div className="h-screen w-full flex flex-col p-4 font-mono text-green-500 bg-black overflow-hidden">
-      <header className="flex justify-between items-center mb-3 border-b border-green-900 pb-2 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <Terminal size={22} className="text-green-400" />
-          <h1 className="text-lg font-bold tracking-widest uppercase">
-            Neural X <span className="text-green-700 text-xs">V.002</span>
+      <header className="flex justify-between items-center mb-4 border-b border-green-900 pb-4 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <Terminal size={32} className="text-green-400" />
+          <h1 className="text-2xl font-bold tracking-widest uppercase">
+            Neural X <span className="text-green-700 text-sm">V.002</span>
           </h1>
         </div>
-        <div className="flex gap-4 text-xs">
-          <div className="flex items-center gap-1 text-green-700">
-            <Wifi size={12} />
+        <div className="flex gap-6 text-sm">
+          <div className="flex items-center gap-2 text-green-700">
+            <Wifi size={16} />
             <span>CONNECTED</span>
           </div>
-          <div className={`flex items-center gap-1 ${statusDisplay.color}`}>
+          <div className={`flex items-center gap-2 ${statusDisplay.color}`}>
             {statusDisplay.icon}
             <span>{statusDisplay.text}</span>
           </div>
@@ -214,13 +214,13 @@ function App() {
       <main className="flex-1 flex overflow-hidden gap-4">
         {!isRunning && !report ? (
           <div className="flex-1 flex flex-col justify-center items-center">
-            <div className="w-full max-w-2xl">
+            <div className="w-full max-w-4xl">
               <div className="mb-8 text-center">
                 <ShieldAlert
-                  size={56}
+                  size={64}
                   className="mx-auto mb-4 text-green-600"
                 />
-                <h1 className="text-4xl text-green-400 mb-2">
+                <h1 className="text-4xl mb-2" style={{ color: '#00c950' }}>
                   Full Security Audit
                 </h1>
                 <p className="text-green-700 text-lg">
@@ -247,9 +247,6 @@ function App() {
                   </button>
                 </div>
               </form>
-              <p className="mt-4 text-xs text-green-900 text-center">
-                ⚠️ Personal Websites Only
-              </p>
             </div>
           </div>
         ) : (
@@ -334,12 +331,8 @@ function App() {
         )}
       </main>
 
-      <footer className="mt-2 pt-2 border-t border-green-950 text-center text-xs text-green-900 flex-shrink-0">
-        Powered by{" "}
-        <a href="https://github.com/browser-use/browser-use">
-          {" "}
-          <u>browser-use</u>
-        </a>
+      <footer className="mt-2 pt-2 border-t border-green-950 text-center text-base font-semibold text-green-900 flex-shrink-0">
+        Team Neural X
       </footer>
     </div>
   );
