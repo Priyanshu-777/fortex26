@@ -13,68 +13,77 @@ from attacks.dom_xss import DOMXSSTester
 from reporting.report_generator import ReportGenerator
 
 class Orchestrator:
-    def __init__(self):
+    def __init__(self, target_url=None, log_callback=None):
         load_dotenv()
 
         self.zap_proxy = os.getenv("ZAP_PROXY")
         self.zap_api_key = os.getenv("ZAP_API_KEY")
-        self.target_url = os.getenv("TARGET_URL")
+        
+        # Accept target_url as parameter or fall back to .env
+        self.target_url = target_url or os.getenv("TARGET_URL")
+        self.log_callback = log_callback
 
         if not self.zap_proxy or not self.target_url:
-            raise RuntimeError("ZAP_PROXY or TARGET_URL missing in .env")
+            raise RuntimeError("ZAP_PROXY or TARGET_URL missing")
 
         self.zap = ZAPClient(
             zap_proxy=self.zap_proxy,
             api_key=self.zap_api_key,
         )
+    
+    def log(self, message, log_type="info"):
+        """Log message to console and callback if provided"""
+        print(message)
+        if self.log_callback:
+            self.log_callback(message, log_type)
 
     def run(self):
-        print("\n[+] Orchestrator started")
-        print("[+] Target:", self.target_url)
+        self.log("[+] Orchestrator started")
+        self.log(f"[+] Target: {self.target_url}")
         
         findings = []
 
         # -----------------------------
         # ZAP Recon
         # -----------------------------
-        print("\n[+] Resetting ZAP session")
+        self.log("[Step 3] Resetting ZAP session", "step")
         self.zap.reset_session()
 
-        print("[+] Running spider")
+        self.log("[Step 4] Running spider to discover pages", "step")
         self.zap.spider(self.target_url)
 
-        print("[+] Running AJAX spider")
+        self.log("[Step 4b] Running AJAX spider", "step")
         self.zap.ajax_spider(self.target_url)
 
-        print("[+] Waiting for passive scan")
+        self.log("[Step 5] Waiting for passive scan", "step")
         self.zap.wait_for_passive_scan()
 
         # -----------------------------
         # Extract Attack Surface
         # -----------------------------
-        print("\n[+] Extracting attack surface")
+        self.log("[Step 6] Extracting attack surface", "step")
         attack_surface = self.zap.extract_attack_surface()
-        print(f"[+] Found {len(attack_surface)} request patterns")
+        self.log(f"[+] Found {len(attack_surface)} request patterns")
 
         if not attack_surface:
-            print("[-] No attack surface found")
+            self.log("[-] No attack surface found", "error")
             return findings
 
         # -----------------------------
         # AI Attack Planning
         # -----------------------------
-        print("\n[+] Running AI attack planner")
+        self.log("[Step 7] Running AI attack planner", "step")
         planner = AIAttackPlanner()
         attack_plan = planner.plan(attack_surface)
 
-        print("\n[AI] Attack Plan:")
+        self.log("[AI] Attack Plan generated")
         for r in attack_plan["reasoning"]:
-            print(" -", r)
+            self.log(f" - {r}")
 
         # -----------------------------
         # Prepare IDOR Targets
         # -----------------------------
-        print("\n[+] Preparing IDOR endpoints")
+        self.log("[Step 8] Preparing IDOR endpoints", "step")
         idor_targets = zap_surface_to_endpoints(
             attack_surface=attack_surface,
             base_url=self.target_url.rstrip("/"),
@@ -82,14 +91,10 @@ class Orchestrator:
         
         # Only proceed if AI planned IDOR
         if not any(a["type"] == "IDOR" for a in attack_plan["attacks"]):
-            print("[AI] No IDOR attacks planned. Exiting.")
+            self.log("[AI] No IDOR attacks planned")
             # We continue to allow other tests to run
 
-        print(f"[+] {len(idor_targets)} endpoints ready for IDOR testing")
-
-        if not idor_targets:
-            print("[-] No ID-based endpoints discovered")
-            return findings
+        self.log(f"[+] {len(idor_targets)} endpoints ready for testing")
 
         proxies = {
             "http": self.zap_proxy,
@@ -100,7 +105,7 @@ class Orchestrator:
         # Run IDOR Attacks
         # -----------------------------
         if any(a["type"] == "IDOR" for a in attack_plan["attacks"]):
-            print("\n[+] Running IDOR tests")
+            self.log("[Step 9] Running IDOR tests", "step")
             idor = IDORTester(
                 base_url=self.target_url,
                 headers={
@@ -116,7 +121,7 @@ class Orchestrator:
         # Run AUTH Tests
         # -----------------------------
         if any(a["type"] == "AUTH" for a in attack_plan["attacks"]):
-            print("\n[+] Running authentication checks")
+            self.log("[Step 10] Running authentication checks", "step")
 
             auth = AuthTester(
                 headers={
@@ -131,7 +136,7 @@ class Orchestrator:
         # Run XSS Tests
         # -----------------------------
         if any(a["type"] == "XSS" for a in attack_plan["attacks"]):
-            print("\n[+] Running XSS tests")
+            self.log("[Step 11] Running XSS tests", "step")
 
             xss = XSSTester(
                 headers={
@@ -146,7 +151,7 @@ class Orchestrator:
         # Run DOM-XSS Tests
         # -----------------------------
         if any(a["type"] == "DOM-XSS" for a in attack_plan["attacks"]):
-            print("\n[+] Running DOM-XSS analysis")
+            self.log("[Step 12] Running DOM-XSS analysis", "step")
 
             dom_xss = DOMXSSTester(
                 headers={
@@ -161,7 +166,7 @@ class Orchestrator:
         # Severity Scoring
         # -----------------------------
         if findings:
-            print("\n[+] Scoring vulnerability severity")
+            self.log("[Step 13] Scoring vulnerability severity", "step")
             scorer = SeverityScorer()
 
             for f in findings:
@@ -170,15 +175,15 @@ class Orchestrator:
         # -----------------------------
         # Reporting
         # -----------------------------
-        print("\n========== SCAN RESULTS ==========")
+        self.log("========== SCAN RESULTS ==========")
 
         if findings:
             for i, f in enumerate(findings, 1):
-                print(f"\n[{i}] {f['vulnerability']} ({f['severity']})")
-                print("    Endpoint :", f.get("endpoint"))
-                print("    Impact   :", f.get("impact"))
+                self.log(f"[{i}] {f['vulnerability']} ({f['severity']})")
+                self.log(f"    Endpoint: {f.get('endpoint')}")
+                self.log(f"    Impact: {f.get('impact')}")
 
-            print("\n[+] Generating report")
+            self.log("[Step 14] Generating report", "step")
             report = ReportGenerator(
                 target=self.target_url,
                 findings=findings,
@@ -186,12 +191,12 @@ class Orchestrator:
                 attack_plan=attack_plan
             )
             path = report.save()
-            print(f"[+] Report saved at: {path}")
+            self.log(f"[+] Report saved at: {path}", "success")
         else:
-            print("[+] No IDOR vulnerabilities found")
+            self.log("[+] No vulnerabilities found", "success")
             
             # Always generate report
-            print("\n[+] Generating report")
+            self.log("[Step 14] Generating report", "step")
             report = ReportGenerator(
                 target=self.target_url,
                 findings=[],
@@ -199,7 +204,7 @@ class Orchestrator:
                 attack_plan=attack_plan
             )
             path = report.save()
-            print(f"[+] Report saved at: {path}")
+            self.log(f"[+] Report saved at: {path}", "success")
 
-        print("\n[+] Orchestrator finished\n")
+        self.log("[+] Orchestrator finished", "success")
         return findings

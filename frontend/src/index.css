@@ -1,0 +1,106 @@
+@import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&display=swap");
+
+@theme {
+  --color-terminal-green: #0f0;
+  --color-terminal-black: #0a0a0a;
+  --font-mono: "Fira Code", monospace;
+  --animate-cursor-blink: blink 1s step-end infinite;
+
+  @keyframes blink {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-terminal-black text-terminal-green font-mono overflow-hidden;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background-color: var(--color-terminal-black);
+}
+::-webkit-scrollbar-thumb {
+  background-color: #14532d;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #15803d;
+}
+
+.glow {
+  text-shadow:
+    0 0 10px var(--color-terminal-green),
+    0 0 20px var(--color-terminal-green),
+    0 0 30px var(--color-terminal-green);
+}
+
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(0, 255, 0, 0.05),
+    transparent
+  );
+  animation: scanline 8s linear infinite;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+@keyframes flicker {
+  0% {
+    opacity: 0.97;
+  }
+  5% {
+    opacity: 0.98;
+  }
+  10% {
+    opacity: 0.97;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+body {
+  animation: flicker 0.15s infinite;
+}
+
+@keyframes progress-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.8);
+  }
+}
+
+.progress-bar-glow {
+  animation: progress-glow 2s ease-in-out infinite;
+}
