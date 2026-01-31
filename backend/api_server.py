@@ -17,12 +17,13 @@ app = FastAPI(title="Security Scanner API")
 
 # CORS configuration for frontend
 # Get allowed origins from environment variable or use defaults
-# We trim whitespace to avoid issues with "url1, url2" format
-frontend_env = os.getenv("FRONTEND_URL", "http://localhost:5173,http://localhost:3000")
+frontend_env = os.getenv("FRONTEND_URL", "*") # Default to * to unblock CORS issues
 if frontend_env == "*":
     allowed_origins = ["*"]
 else:
     allowed_origins = [origin.strip() for origin in frontend_env.split(",") if origin.strip()]
+
+print(f"DEBUG: Allowed Origins: {allowed_origins}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,6 +32,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def debug_logging_middleware(request, call_next):
+    print(f"DEBUG: {request.method} {request.url}")
+    response = await call_next(request)
+    print(f"DEBUG: Response Status: {response.status_code}")
+    return response
 
 # In-memory storage for scan state
 scans: Dict[str, dict] = {}
