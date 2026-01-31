@@ -1,4 +1,5 @@
 import os
+import requests
 from dotenv import load_dotenv
 from ai.planner import AIAttackPlanner
 from ai.severity import SeverityScorer
@@ -11,6 +12,7 @@ from attacks.auth import AuthTester
 from attacks.xss import XSSTester
 from attacks.dom_xss import DOMXSSTester
 from reporting.report_generator import ReportGenerator
+from core.crawler import SimpleCrawler
 
 class Orchestrator:
     def __init__(self, target_url=None, log_callback=None):
@@ -30,13 +32,22 @@ class Orchestrator:
         self.zap_enabled = bool(self.zap_proxy and self.zap_api_key)
         
         if self.zap_enabled:
-            self.zap = ZAPClient(
-                zap_proxy=self.zap_proxy,
-                api_key=self.zap_api_key,
-            )
+            # Check ZAP connectivity
+            try:
+                # Use a short timeout for the check
+                requests.get(self.zap_proxy, timeout=2)
+                self.zap = ZAPClient(
+                    zap_proxy=self.zap_proxy,
+                    api_key=self.zap_api_key,
+                )
+                self.log(f"[+] Connected to ZAP proxy at {self.zap_proxy}")
+            except Exception:
+                self.zap_enabled = False
+                self.zap = None
+                self.log("⚠️  ZAP proxy not reachable - falling back to built-in scanner", "warning")
         else:
             self.zap = None
-            self.log("⚠️  ZAP proxy not configured - ZAP scanning disabled", "warning")
+            self.log("⚠️  ZAP proxy not configured - using built-in scanner", "warning")
     
     def log(self, message, log_type="info"):
         """Log message to console and callback if provided"""
@@ -50,37 +61,29 @@ class Orchestrator:
         
         findings = []
 
-        # If ZAP is not enabled, return minimal results
-        if not self.zap_enabled:
-            self.log("⚠️  ZAP scanning disabled - returning minimal scan results", "warning")
-            self.log("[+] For full security scanning, configure ZAP_PROXY and ZAP_API_KEY", "info")
-            return {
-                "findings": [],
-                "attack_surface": [],
-                "attack_plan": {"attacks": [], "reasoning": ["ZAP not configured"]},
-                "risk_level": "UNKNOWN"
-            }
-
         # -----------------------------
-        # ZAP Recon
+        # Discovery Phase
         # -----------------------------
-        self.log("[Step 3] Resetting ZAP session", "step")
-        self.zap.reset_session()
+        if self.zap_enabled:
+            self.log("[Step 3] Resetting ZAP session", "step")
+            self.zap.reset_session()
 
-        self.log("[Step 4] Running spider to discover pages", "step")
-        self.zap.spider(self.target_url)
+            self.log("[Step 4] Running spider to discover pages", "step")
+            self.zap.spider(self.target_url)
 
-        self.log("[Step 4b] Running AJAX spider", "step")
-        self.zap.ajax_spider(self.target_url)
+            self.log("[Step 4b] Running AJAX spider", "step")
+            self.zap.ajax_spider(self.target_url)
 
-        self.log("[Step 5] Waiting for passive scan", "step")
-        self.zap.wait_for_passive_scan()
+            self.log("[Step 5] Waiting for passive scan", "step")
+            self.zap.wait_for_passive_scan()
 
-        # -----------------------------
-        # Extract Attack Surface
-        # -----------------------------
-        self.log("[Step 6] Extracting attack surface", "step")
-        attack_surface = self.zap.extract_attack_surface()
+            self.log("[Step 6] Extracting attack surface", "step")
+            attack_surface = self.zap.extract_attack_surface()
+        else:
+            self.log("⚠️  ZAP scanning disabled - using fallback crawler", "warning")
+            crawler = SimpleCrawler(self.target_url, log_callback=lambda msg: self.log(msg))
+            attack_surface = crawler.crawl()
+
         self.log(f"[+] Found {len(attack_surface)} request patterns")
 
         if not attack_surface:
@@ -112,17 +115,13 @@ class Orchestrator:
             base_url=self.target_url.rstrip("/"),
         )
         
-        # Only proceed if AI planned IDOR
-        if not any(a["type"] == "IDOR" for a in attack_plan["attacks"]):
-            self.log("[AI] No IDOR attacks planned")
-            # We continue to allow other tests to run
-
         self.log(f"[+] {len(target_endpoints)} endpoints ready for testing")
 
+        # Disable proxies if ZAP is not enabled
         proxies = {
             "http": self.zap_proxy,
             "https": self.zap_proxy,
-        }
+        } if self.zap_enabled else {}
 
         # -----------------------------
         # Run IDOR Attacks

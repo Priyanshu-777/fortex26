@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+vwen/
+env/
+.env
+.venv
+build/
+dist/
+
+# Logs
+*.log
+
+# Project specific
+backend/.env
+frontend/.env
+.idea/
+.vscode/
+node_modules/
