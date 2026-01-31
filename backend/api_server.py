@@ -17,7 +17,13 @@ app = FastAPI(title="Security Scanner API")
 
 # CORS configuration for frontend
 # Get allowed origins from environment variable or use defaults
-allowed_origins = os.getenv("FRONTEND_URL", "http://localhost:5173,http://localhost:3000").split(",")
+# We trim whitespace to avoid issues with "url1, url2" format
+frontend_env = os.getenv("FRONTEND_URL", "http://localhost:5173,http://localhost:3000")
+if frontend_env == "*":
+    allowed_origins = ["*"]
+else:
+    allowed_origins = [origin.strip() for origin in frontend_env.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
