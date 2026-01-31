@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import ReportViewer from "./components/ReportViewer";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://fortex26-2.onrender.com";
+
 function App() {
   const [url, setUrl] = useState("");
   const [isRunning, setIsRunning] = useState(false);
@@ -44,7 +46,7 @@ function App() {
     ]);
 
     try {
-      const response = await fetch("http://localhost:8000/attack", {
+      const response = await fetch(`${API_BASE_URL}/attack`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
@@ -73,7 +75,7 @@ function App() {
     // HTTP polling instead of Firebase
     const pollInterval = setInterval(async () => {
       try {
-        const response = await fetch(`http://localhost:8000/status/${runId}`);
+        const response = await fetch(`${API_BASE_URL}/status/${runId}`);
         if (!response.ok) return;
 
         const data = await response.json();
