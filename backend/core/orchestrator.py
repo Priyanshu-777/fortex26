@@ -23,13 +23,20 @@ class Orchestrator:
         self.target_url = target_url or os.getenv("TARGET_URL")
         self.log_callback = log_callback
 
-        if not self.zap_proxy or not self.target_url:
-            raise RuntimeError("ZAP_PROXY or TARGET_URL missing")
+        if not self.target_url:
+            raise RuntimeError("TARGET_URL missing")
 
-        self.zap = ZAPClient(
-            zap_proxy=self.zap_proxy,
-            api_key=self.zap_api_key,
-        )
+        # Make ZAP optional for cloud deployment
+        self.zap_enabled = bool(self.zap_proxy and self.zap_api_key)
+        
+        if self.zap_enabled:
+            self.zap = ZAPClient(
+                zap_proxy=self.zap_proxy,
+                api_key=self.zap_api_key,
+            )
+        else:
+            self.zap = None
+            self.log("⚠️  ZAP proxy not configured - ZAP scanning disabled", "warning")
     
     def log(self, message, log_type="info"):
         """Log message to console and callback if provided"""
@@ -42,6 +49,17 @@ class Orchestrator:
         self.log(f"[+] Target: {self.target_url}")
         
         findings = []
+
+        # If ZAP is not enabled, return minimal results
+        if not self.zap_enabled:
+            self.log("⚠️  ZAP scanning disabled - returning minimal scan results", "warning")
+            self.log("[+] For full security scanning, configure ZAP_PROXY and ZAP_API_KEY", "info")
+            return {
+                "findings": [],
+                "attack_surface": [],
+                "attack_plan": {"attacks": [], "reasoning": ["ZAP not configured"]},
+                "risk_level": "UNKNOWN"
+            }
 
         # -----------------------------
         # ZAP Recon

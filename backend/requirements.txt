@@ -6,4 +6,5 @@ openai
 colorama
 fastapi
 uvicorn[standard]
+gunicorn
 pydantic
