@@ -76,6 +76,22 @@ function App() {
     const pollInterval = setInterval(async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/status/${runId}`);
+
+        if (response.status === 404) {
+          setIsRunning(false);
+          setStatus("ERROR");
+          setLogs((prev) => [
+            ...prev,
+            {
+              timestamp: new Date().toISOString(),
+              message: "Scan session lost (server likely restarted). Please start a new scan.",
+              type: "error",
+            },
+          ]);
+          clearInterval(pollInterval);
+          return;
+        }
+
         if (!response.ok) return;
 
         const data = await response.json();
