@@ -17,28 +17,35 @@ app = FastAPI(title="Security Scanner API")
 
 # CORS configuration for frontend
 # Get allowed origins from environment variable or use defaults
-frontend_env = os.getenv("FRONTEND_URL", "*") # Default to * to unblock CORS issues
-if frontend_env == "*":
+frontend_env = os.getenv("FRONTEND_URL", "*").strip()
+if frontend_env == "*" or not frontend_env:
     allowed_origins = ["*"]
+    allow_credentials = False # Credentials NOT allowed with "*"
 else:
     allowed_origins = [origin.strip() for origin in frontend_env.split(",") if origin.strip()]
+    allow_credentials = True
 
-print(f"DEBUG: Allowed Origins: {allowed_origins}")
+print(f"DEBUG: Allowed Origins: {allowed_origins}, Credentials: {allow_credentials}")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_credentials=True,
+    allow_credentials=allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 @app.middleware("http")
 async def debug_logging_middleware(request, call_next):
-    print(f"DEBUG: {request.method} {request.url}")
-    response = await call_next(request)
-    print(f"DEBUG: Response Status: {response.status_code}")
-    return response
+    # Log incoming request info
+    print(f"DEBUG: {request.method} {request.url} - Headers: {dict(request.headers)}")
+    try:
+        response = await call_next(request)
+        print(f"DEBUG: Response Status: {response.status_code}")
+        return response
+    except Exception as e:
+        print(f"DEBUG: Request failed with error: {str(e)}")
+        raise e
 
 # In-memory storage for scan state
 scans: Dict[str, dict] = {}
