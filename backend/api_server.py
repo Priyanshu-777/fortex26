@@ -3,8 +3,9 @@ import uuid
 import threading
 from datetime import datetime
 from typing import Dict, List, Optional
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -15,37 +16,38 @@ load_dotenv()
 
 app = FastAPI(title="Security Scanner API")
 
-# CORS configuration for frontend
-# Get allowed origins from environment variable or use defaults
-frontend_env = os.getenv("FRONTEND_URL", "*").strip()
-if frontend_env == "*" or not frontend_env:
-    allowed_origins = ["*"]
-    allow_credentials = False # Credentials NOT allowed with "*"
-else:
-    allowed_origins = [origin.strip() for origin in frontend_env.split(",") if origin.strip()]
-    allow_credentials = True
+# Manual CORS Middleware to bypass strict checks
+class ManualCORSMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        origin = request.headers.get("Origin", "*")
+        
+        # Log for debugging
+        print(f"DEBUG: {request.method} {request.url} | Origin: {origin}")
 
-print(f"DEBUG: Allowed Origins: {allowed_origins}, Credentials: {allow_credentials}")
+        # Handle Preflight OPTIONS directly
+        if request.method == "OPTIONS":
+            response = Response(status_code=200)
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS, PUT, DELETE"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            return response
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=allow_credentials,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+        try:
+            response = await call_next(request)
+        except Exception as e:
+            print(f"ERROR: {e}")
+            response = JSONResponse(content={"detail": str(e)}, status_code=500)
 
-@app.middleware("http")
-async def debug_logging_middleware(request, call_next):
-    # Log incoming request info
-    print(f"DEBUG: {request.method} {request.url} - Headers: {dict(request.headers)}")
-    try:
-        response = await call_next(request)
-        print(f"DEBUG: Response Status: {response.status_code}")
+        # Set CORS headers on all responses
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS, PUT, DELETE"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        
         return response
-    except Exception as e:
-        print(f"DEBUG: Request failed with error: {str(e)}")
-        raise e
+
+app.add_middleware(ManualCORSMiddleware)
 
 # In-memory storage for scan state
 scans: Dict[str, dict] = {}
